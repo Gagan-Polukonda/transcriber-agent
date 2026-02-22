@@ -41,6 +41,16 @@ echo -e "${GREEN}✓ Dependencies installed${NC}"
 cd ..
 
 echo ""
+echo "Checking for whisper.cpp..."
+if [ ! -d "native/whisper.cpp" ]; then
+    echo "Cloning whisper.cpp..."
+    git clone https://github.com/ggerganov/whisper.cpp.git native/whisper.cpp
+    echo -e "${GREEN}✓ whisper.cpp cloned${NC}"
+else
+    echo -e "${GREEN}✓ whisper.cpp already present${NC}"
+fi
+
+echo ""
 echo "Building native Whisper bridge..."
 mkdir -p native/build
 cd native/build
@@ -54,14 +64,28 @@ echo -e "${GREEN}✓ Native library built${NC}"
 
 cd ../..
 
+# Copy dylib to a location the app can find
+if [ "$(uname)" == "Darwin" ]; then
+    echo ""
+    echo "Installing dylib for macOS..."
+    cp native/build/whisper_bridge.dylib /usr/local/lib/ 2>/dev/null || {
+        echo -e "${YELLOW}Could not copy to /usr/local/lib (try with sudo)${NC}"
+        echo "  sudo cp native/build/whisper_bridge.dylib /usr/local/lib/"
+    }
+fi
+
 echo ""
 echo -e "${YELLOW}Next steps:${NC}"
-echo "1. Download Whisper models:"
+echo "1. Download a Whisper model (tiny is fastest, ~75MB):"
 echo "   mkdir -p models"
-echo "   # Download ggml-tiny.bin, ggml-base.bin, or ggml-small.bin from HuggingFace"
+echo "   curl -L -o models/ggml-base.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"
 echo ""
-echo "2. Run the app:"
+echo "2. Copy the model to the app's documents directory:"
+echo "   mkdir -p ~/Library/Containers/com.example.voiceToTextLocal/Data/Documents/whisper_models/"
+echo "   cp models/ggml-base.bin ~/Library/Containers/com.example.voiceToTextLocal/Data/Documents/whisper_models/"
+echo ""
+echo "3. Run the app:"
 echo "   cd app"
-echo "   flutter run"
+echo "   flutter run -d macos"
 echo ""
 echo -e "${GREEN}Setup complete!${NC}"

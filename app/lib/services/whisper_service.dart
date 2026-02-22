@@ -32,7 +32,7 @@ class WhisperService {
       if (Platform.isAndroid) {
         _dylib = DynamicLibrary.open('libwhisper_bridge.so');
       } else if (Platform.isMacOS) {
-        _dylib = DynamicLibrary.open('libwhisper_bridge.dylib');
+        _dylib = _loadMacOSLibrary();
       } else if (Platform.isLinux) {
         _dylib = DynamicLibrary.open('libwhisper_bridge.so');
       } else {
@@ -95,4 +95,31 @@ class WhisperService {
   }
 
   String get currentModel => _currentModel;
+
+  DynamicLibrary _loadMacOSLibrary() {
+    // Search common paths where the dylib might be built
+    final exe = Platform.resolvedExecutable;
+    final appDir = exe.substring(0, exe.lastIndexOf('/'));
+
+    final searchPaths = [
+      // Next to the app executable (Frameworks dir)
+      '$appDir/../Frameworks/whisper_bridge.dylib',
+      // Native build output
+      '${Directory.current.path}/native/build/whisper_bridge.dylib',
+      // Relative to repo root from app/
+      '${Directory.current.path}/../native/build/whisper_bridge.dylib',
+      // Absolute common dev path
+      'whisper_bridge.dylib',
+    ];
+
+    for (final path in searchPaths) {
+      final file = File(path);
+      if (file.existsSync()) {
+        return DynamicLibrary.open(file.absolute.path);
+      }
+    }
+
+    // Fall back to default search (LD_LIBRARY_PATH, /usr/local/lib, etc.)
+    return DynamicLibrary.open('whisper_bridge.dylib');
+  }
 }
