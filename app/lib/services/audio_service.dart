@@ -4,11 +4,11 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
 class AudioService {
-  late final Record _recorder;
+  late final AudioRecorder _recorder;
   bool _isRecording = false;
 
   AudioService() {
-    _recorder = Record();
+    _recorder = AudioRecorder();
   }
 
   bool get isRecording => _isRecording;
@@ -45,8 +45,8 @@ class AudioService {
 
     try {
       await _recorder.start(
+        RecordConfig(encoder: AudioEncoder.wav),
         path: audioPath,
-        encoder: AudioEncoder.wav,
       );
       _isRecording = true;
       return audioPath;
@@ -61,7 +61,7 @@ class AudioService {
     }
 
     try {
-      final path = await _recorder.stop();
+      await _recorder.stop();
       _isRecording = false;
       // Return 0 as placeholder duration (record package doesn't return duration directly)
       return 0;
