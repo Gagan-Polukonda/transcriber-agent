@@ -21,3 +21,6 @@ macos/Pods/
 # Xcode IDE workspace state (machine-specific)
 **/xcshareddata/IDEWorkspaceChecks.plist
 **/xcshareddata/WorkspaceSettings.xcsettings
+
+# IDE - IntelliJ / Android Studio
+.idea/
