@@ -15,6 +15,7 @@ option(WHISPER_CUDA "Build with CUDA support" OFF)
 
 # Find required packages
 find_package(Threads REQUIRED)
+add_subdirectory(whisper.cpp)
 
 # Whisper.cpp source files (subset needed for transcription)
 set(WHISPER_SOURCES
@@ -26,7 +27,7 @@ set(WHISPER_SOURCES
 # Create shared library for Android
 if(ANDROID)
     add_library(whisper_bridge SHARED ${WHISPER_SOURCES})
-    target_link_libraries(whisper_bridge PRIVATE Threads::Threads)
+    target_link_libraries(whisper_bridge PRIVATE Threads::Threads whisper)
     # Link against pre-built whisper.a if available
     # target_link_libraries(whisper_bridge PRIVATE ${WHISPER_CPP_DIR}/libwhisper.a)
 endif()

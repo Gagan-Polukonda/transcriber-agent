@@ -1,0 +1,28 @@
+name: WhisperBindings
+description: FFI bindings for Whisper.cpp
+output: 'lib/bindings/whisper_bindings.dart'
+
+headers:
+  entry-points:
+    - '/Users/gagan/Downloads/flutter-dev/whisper.cpp/include/whisper.h'
+
+exclude-all-by-default: false
+
+functions:
+  exclude: []
+
+structs:
+  exclude: []
+
+enums:
+  exclude: []
+
+typedefs:
+  exclude: []
+
+macros:
+  exclude: []
+
+compiler-opts:
+  - '-I/Users/gagan/Downloads/flutter-dev/whisper.cpp/include'
+  - '-I/Users/gagan/Downloads/flutter-dev/whisper.cpp/ggml/include'

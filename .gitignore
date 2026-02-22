@@ -14,3 +14,5 @@ models/
 
 # Native build output
 native/build*/
+
+whisper.cpp/

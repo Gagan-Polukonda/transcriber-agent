@@ -24,3 +24,4 @@ macos/Pods/
 
 # IDE - IntelliJ / Android Studio
 .idea/
+*.iml
