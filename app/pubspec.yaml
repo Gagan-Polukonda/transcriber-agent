@@ -38,5 +38,8 @@ dev_dependencies:
   flutter_lints: ^2.0.0
   ffigen: 20.1.1
 
+dependency_overrides:
+  record_linux: ^1.1.0
+
 flutter:
   uses-material-design: true
