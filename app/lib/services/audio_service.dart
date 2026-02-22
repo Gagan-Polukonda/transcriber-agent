@@ -1,14 +1,14 @@
-import 'package:flutter_sound/flutter_sound.dart';
+import 'package:record/record.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
 class AudioService {
-  late FlutterSoundRecorder _recorder;
+  late final Record _recorder;
   bool _isRecording = false;
 
   AudioService() {
-    _recorder = FlutterSoundRecorder();
+    _recorder = Record();
   }
 
   bool get isRecording => _isRecording;
@@ -18,11 +18,6 @@ class AudioService {
     final status = await Permission.microphone.request();
     if (status.isDenied) {
       throw Exception('Microphone permission denied');
-    }
-
-    // Open the recorder
-    if (!_recorder.isOpen) {
-      await _recorder.openRecorder();
     }
   }
 
@@ -43,9 +38,9 @@ class AudioService {
     final audioPath = '${audioDir.path}/recording_$timestamp.wav';
 
     try {
-      await _recorder.startRecorder(
-        toFile: audioPath,
-        codec: Codec.pcm16wav,
+      await _recorder.start(
+        path: audioPath,
+        encoder: AudioEncoder.wav,
       );
       _isRecording = true;
       return audioPath;
@@ -60,9 +55,10 @@ class AudioService {
     }
 
     try {
-      final duration = await _recorder.stopRecorder();
+      final path = await _recorder.stop();
       _isRecording = false;
-      return duration ?? 0;
+      // Return 0 as placeholder duration (record package doesn't return duration directly)
+      return 0;
     } catch (e) {
       throw Exception('Failed to stop recording: $e');
     }
@@ -72,6 +68,5 @@ class AudioService {
     if (_isRecording) {
       await stopRecording();
     }
-    await _recorder.closeRecorder();
   }
 }
