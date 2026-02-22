@@ -15,9 +15,15 @@ class AudioService {
 
   Future<void> initializeRecorder() async {
     // Request microphone permission
-    final status = await Permission.microphone.request();
-    if (status.isDenied) {
-      throw Exception('Microphone permission denied');
+    try {
+      final status = await Permission.microphone.request();
+      if (status.isDenied) {
+        throw Exception('Microphone permission denied');
+      }
+    } catch (e) {
+      // If permission_handler fails, continue anyway
+      // macOS handles permissions differently
+      print('Permission handler note: $e');
     }
   }
 
