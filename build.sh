@@ -24,21 +24,26 @@ check_tool() {
 
 echo ""
 echo "Checking prerequisites..."
-check_tool "flutter" || { echo "Please install Flutter"; exit 1; }
 check_tool "cmake" || { echo "Please install CMake"; exit 1; }
+if ! command -v flutter &> /dev/null; then
+    echo -e "${YELLOW}⚠ flutter not found (optional for native build)${NC}"
+fi
 
 if [ "$(uname)" == "Darwin" ]; then
     check_tool "xcode-select" || { echo "Please install Xcode Command Line Tools"; exit 1; }
 fi
 
 echo ""
-echo "Setting up Flutter project..."
-cd app
-echo "Getting dependencies..."
-flutter pub get
-echo -e "${GREEN}✓ Dependencies installed${NC}"
-
-cd ..
+if command -v flutter &> /dev/null; then
+    echo "Setting up Flutter project..."
+    cd app
+    echo "Getting dependencies..."
+    flutter pub get
+    echo -e "${GREEN}✓ Dependencies installed${NC}"
+    cd ..
+else
+    echo -e "${YELLOW}⚠ flutter not found, skipping Flutter setup${NC}"
+fi
 
 echo ""
 echo "Checking for whisper.cpp..."
