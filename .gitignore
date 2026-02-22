@@ -8,3 +8,11 @@ wheels/
 
 # Virtual environments
 .venv
+
+# ML model binaries (too large for git — download separately)
+models/
+
+# Native build output
+native/build*/
+
+whisper.cpp/
