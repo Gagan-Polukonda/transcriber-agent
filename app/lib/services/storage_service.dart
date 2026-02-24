@@ -1,19 +1,19 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import '../models/transcript.dart';
 
 class StorageService {
   late Database _db;
 
-  Directory get _dataDir {
-    // Mirrors how whisper_service finds models: current dir is app/, so ../ is repo root
-    final repoRoot = Directory('${Directory.current.path}/..');
-    return Directory('${repoRoot.path}/data');
+  Future<Directory> _getDataDir() async {
+    final appDir = await getApplicationDocumentsDirectory();
+    return Directory('${appDir.path}/voice_transcripts');
   }
 
   Future<void> initDb() async {
-    final dataDir = _dataDir;
+    final dataDir = await _getDataDir();
     if (!dataDir.existsSync()) {
       dataDir.createSync(recursive: true);
     }
@@ -70,7 +70,8 @@ class StorageService {
     Transcript transcript, {
     required String format, // 'txt' or 'json'
   }) async {
-    final transcriptsDir = Directory('${_dataDir.path}/transcripts');
+    final dataDir = await _getDataDir();
+    final transcriptsDir = Directory('${dataDir.path}/transcripts');
 
     final fileName = 'transcript_${transcript.id}.$format';
     final filePath = join(transcriptsDir.path, fileName);
