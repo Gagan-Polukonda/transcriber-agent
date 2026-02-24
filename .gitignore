@@ -15,7 +15,7 @@ models/
 # Native build output
 native/build*/
 
-whisper.cpp/
+# whisper.cpp is committed with Android build fixes
 
 # Runtime data (DB and recorded audio)
 data/
