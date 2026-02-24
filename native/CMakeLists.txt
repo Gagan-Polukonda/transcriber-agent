@@ -23,6 +23,13 @@ endif()
 # Find required packages
 find_package(Threads REQUIRED)
 
+# Force static library on Android by controlling the option before subdirectory
+if(ANDROID)
+    # Override BUILD_SHARED_LIBS through command-line equivalent
+    # This needs to be set before add_subdirectory processes it
+    set(BUILD_SHARED_LIBS OFF)
+endif()
+
 # Add whisper.cpp as subdirectory (must be cloned into native/whisper.cpp/)
 add_subdirectory(whisper.cpp)
 
