@@ -108,8 +108,8 @@ class WhisperService {
       '${Directory.current.path}/native/build/whisper_bridge.dylib',
       // Relative to repo root from app/
       '${Directory.current.path}/../native/build/whisper_bridge.dylib',
-      // Absolute common dev path
-      'whisper_bridge.dylib',
+      // System library path (where build.sh copies it)
+      '/usr/local/lib/whisper_bridge.dylib',
     ];
 
     for (final path in searchPaths) {
@@ -119,7 +119,10 @@ class WhisperService {
       }
     }
 
-    // Fall back to default search (LD_LIBRARY_PATH, /usr/local/lib, etc.)
-    return DynamicLibrary.open('whisper_bridge.dylib');
+    throw Exception(
+      'whisper_bridge.dylib not found. Searched paths:\n'
+      '${searchPaths.map((p) => '  - $p').join('\n')}\n'
+      'Run ./build.sh from the project root to build the native library.',
+    );
   }
 }
