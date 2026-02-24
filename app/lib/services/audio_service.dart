@@ -1,4 +1,5 @@
 import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
 class AudioService {
@@ -21,8 +22,12 @@ class AudioService {
       throw Exception('Microphone permission denied. Please grant access in System Settings → Privacy → Microphone.');
     }
 
-    // Save to repo's data/audio/ — same accessible location as the DB
-    final audioDir = Directory('${Directory.current.path}/../data/audio');
+    // Save to Downloads folder for accessibility
+    final downloadDir = await getDownloadsDirectory();
+    if (downloadDir == null) {
+      throw Exception('Could not access Downloads directory');
+    }
+    final audioDir = Directory('${downloadDir.path}/voice_transcripts/audio');
     if (!audioDir.existsSync()) {
       audioDir.createSync(recursive: true);
     }
