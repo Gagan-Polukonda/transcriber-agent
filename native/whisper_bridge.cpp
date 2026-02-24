@@ -41,7 +41,7 @@ static bool read_wav(const char* path, std::vector<float>& pcmf32) {
         if (std::strncmp(chunk_id, "fmt ", 4) == 0) {
             file.read(reinterpret_cast<char*>(&audio_format), 2);
             file.read(reinterpret_cast<char*>(&num_channels), 2);
-            file.read(reinterpret_cast<char*>(&sample_rate), 2);
+            file.read(reinterpret_cast<char*>(&sample_rate), 4);
             // Skip byte rate and block align (6 bytes)
             file.seekg(6, std::ios::cur);
             file.read(reinterpret_cast<char*>(&bits_per_sample), 2);
@@ -131,7 +131,9 @@ char* init_whisper(const char* model_path) {
         g_ctx = nullptr;
     }
 
-    g_ctx = whisper_init_from_file_with_params(model_path, whisper_context_default_params());
+    auto cparams = whisper_context_default_params();
+    cparams.use_gpu = false;  // Intel Iris Metal backend produces wrong results on this Mac
+    g_ctx = whisper_init_from_file_with_params(model_path, cparams);
     if (!g_ctx) {
         return alloc_string("ERROR: Failed to load model");
     }
@@ -142,7 +144,9 @@ char* init_whisper(const char* model_path) {
 char* transcribe(const char* audio_path, const char* model_path) {
     // Initialize model if needed
     if (!g_ctx) {
-        g_ctx = whisper_init_from_file_with_params(model_path, whisper_context_default_params());
+        auto cparams = whisper_context_default_params();
+    cparams.use_gpu = false;  // Intel Iris Metal backend produces wrong results on this Mac
+    g_ctx = whisper_init_from_file_with_params(model_path, cparams);
         if (!g_ctx) {
             return alloc_string("ERROR: Failed to load model");
         }
@@ -158,6 +162,14 @@ char* transcribe(const char* audio_path, const char* model_path) {
         return alloc_string("ERROR: Audio file is empty");
     }
 
+    // Normalize audio if too quiet (mic input level issue on macOS)
+    float max_amp = 0.0f;
+    for (float s : pcmf32) { if (std::abs(s) > max_amp) max_amp = std::abs(s); }
+    if (max_amp > 0.001f && max_amp < 0.3f) {
+        float scale = 0.3f / max_amp;
+        for (float& s : pcmf32) s *= scale;
+    }
+
     // Configure whisper parameters
     struct whisper_full_params params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
     params.n_threads = 4;
@@ -167,6 +179,8 @@ char* transcribe(const char* audio_path, const char* model_path) {
     params.print_realtime = false;
     params.print_timestamps = false;
     params.single_segment = false;
+    params.no_speech_thold = 0.3f;  // lower threshold to detect quieter speech
+    params.logprob_thold   = -3.0f; // allow more uncertain decodings through
 
     // Run transcription
     int ret = whisper_full(g_ctx, params, pcmf32.data(), static_cast<int>(pcmf32.size()));

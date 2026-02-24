@@ -4,7 +4,7 @@ output: 'lib/bindings/whisper_bindings.dart'
 
 headers:
   entry-points:
-    - '/Users/gagan/Downloads/flutter-dev/whisper.cpp/include/whisper.h'
+    - '/Users/gagan/GIT repositories/transcriber-agent/native/whisper.cpp/include/whisper.h'
 
 exclude-all-by-default: false
 
@@ -21,8 +21,8 @@ typedefs:
   exclude: []
 
 macros:
-  exclude: []
+  exclude: [] 
 
 compiler-opts:
-  - '-I/Users/gagan/Downloads/flutter-dev/whisper.cpp/include'
-  - '-I/Users/gagan/Downloads/flutter-dev/whisper.cpp/ggml/include'
+  - '-I/Users/gagan/GIT repositories/transcriber-agent/native/whisper.cpp/include'
+  - '-I/Users/gagan/GIT repositories/transcriber-agent/native/whisper.cpp/ggml/include'

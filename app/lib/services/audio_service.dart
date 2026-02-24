@@ -1,6 +1,4 @@
 import 'package:record/record.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
 class AudioService {
@@ -13,29 +11,18 @@ class AudioService {
 
   bool get isRecording => _isRecording;
 
-  Future<void> initializeRecorder() async {
-    // Request microphone permission
-    try {
-      final status = await Permission.microphone.request();
-      if (status.isDenied) {
-        throw Exception('Microphone permission denied');
-      }
-    } catch (e) {
-      // If permission_handler fails, continue anyway
-      // macOS handles permissions differently
-      print('Permission handler note: $e');
-    }
-  }
-
   Future<String> startRecording() async {
     if (_isRecording) {
       throw Exception('Recording already in progress');
     }
 
-    await initializeRecorder();
+    final hasPermission = await _recorder.hasPermission();
+    if (!hasPermission) {
+      throw Exception('Microphone permission denied. Please grant access in System Settings → Privacy → Microphone.');
+    }
 
-    final dir = await getApplicationDocumentsDirectory();
-    final audioDir = Directory('${dir.path}/voice_audio');
+    // Save to repo's data/audio/ — same accessible location as the DB
+    final audioDir = Directory('${Directory.current.path}/../data/audio');
     if (!audioDir.existsSync()) {
       audioDir.createSync(recursive: true);
     }
@@ -45,7 +32,11 @@ class AudioService {
 
     try {
       await _recorder.start(
-        RecordConfig(encoder: AudioEncoder.wav),
+        const RecordConfig(
+          encoder: AudioEncoder.wav,
+          sampleRate: 16000,
+          numChannels: 1,
+        ),
         path: audioPath,
       );
       _isRecording = true;

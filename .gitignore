@@ -16,3 +16,6 @@ models/
 native/build*/
 
 whisper.cpp/
+
+# Runtime data (DB and recorded audio)
+data/

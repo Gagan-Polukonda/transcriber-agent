@@ -20,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isTranscribing = false;
   String _statusText = 'Ready to record';
   String? _lastTranscript;
+  String? _currentAudioPath;
   Duration _recordingDuration = Duration.zero;
 
   @override
@@ -149,7 +150,7 @@ class _HomeScreenState extends State<HomeScreen> {
       });
 
       final audioService = context.read<AudioService>();
-      await audioService.startRecording();
+      _currentAudioPath = await audioService.startRecording();
 
       // Update duration every second
       while (_isRecording) {
@@ -174,7 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _stopRecording() async {
     try {
       final audioService = context.read<AudioService>();
-      final audioPath = audioService.toString(); // Placeholder
+      final audioPath = _currentAudioPath!;
       final duration = await audioService.stopRecording();
 
       setState(() {
