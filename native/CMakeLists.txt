@@ -9,6 +9,11 @@ option(WHISPER_SUPPORT_OPENBLAS "Support OpenBLAS" OFF)
 option(WHISPER_SUPPORT_COREML "Support CoreML" OFF)
 option(WHISPER_CUDA "Build with CUDA support" OFF)
 
+# For Android, force static linking for whisper.cpp
+if(ANDROID)
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build as static library" FORCE)
+endif()
+
 # Find required packages
 find_package(Threads REQUIRED)
 
@@ -18,10 +23,12 @@ add_subdirectory(whisper.cpp)
 # Bridge source
 set(WHISPER_SOURCES whisper_bridge.cpp)
 
-# Shared library - all platforms
+# For Android, build as shared library but link whisper statically
+# For other platforms, build as shared library
 add_library(whisper_bridge SHARED ${WHISPER_SOURCES})
 
 # Link whisper library from whisper.cpp build
+# On Android, whisper is built as static and will be embedded in whisper_bridge.so
 target_link_libraries(whisper_bridge PRIVATE Threads::Threads whisper)
 
 # Include whisper.cpp headers
