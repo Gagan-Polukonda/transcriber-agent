@@ -35,11 +35,15 @@ add_library(whisper_bridge SHARED ${WHISPER_SOURCES})
 
 # Link whisper library from whisper.cpp build
 # On Android, whisper is built as static and will be embedded in whisper_bridge.so
+target_link_libraries(whisper_bridge PRIVATE Threads::Threads whisper)
+
+# On Android, ensure static library is embedded in the shared library
 if(ANDROID)
-    # Force static linking by using the static library directly
-    target_link_libraries(whisper_bridge PRIVATE Threads::Threads whisper -static)
-else()
-    target_link_libraries(whisper_bridge PRIVATE Threads::Threads whisper)
+    # Use linker script to embed whisper.a completely into whisper_bridge.so
+    target_link_options(whisper_bridge PRIVATE
+        "LINKER:--whole-archive"
+        "LINKER:-Bstatic"
+    )
 endif()
 
 # Include whisper.cpp headers
