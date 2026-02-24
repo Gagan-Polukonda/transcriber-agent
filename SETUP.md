@@ -200,4 +200,99 @@ Change the active model in the app's Settings screen.
 
 ---
 
+## Android Setup
+
+### Prerequisites
+
+- **Android Studio** with SDK + NDK installed (SDK Manager → SDK Tools → NDK (Side by side))
+- Set environment variables:
+  ```bash
+  export ANDROID_HOME=$HOME/Library/Android/sdk
+  export ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/<version>   # e.g. 26.1.10909125
+  ```
+
+### Step A: Generate Android project files
+
+```bash
+cd app
+flutter create --platforms=android .
+```
+
+This creates `app/android/` with all Gradle files. It does not touch existing Dart code.
+
+Then add microphone permission to `app/android/app/src/main/AndroidManifest.xml` inside `<manifest>`:
+
+```xml
+<uses-permission android:name="android.permission.RECORD_AUDIO"/>
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+    android:maxSdkVersion="28"/>
+```
+
+### Step B: Cross-compile whisper_bridge for ARM64
+
+```bash
+cd native
+mkdir -p build_android && cd build_android
+
+cmake .. \
+  -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake \
+  -DANDROID_ABI=arm64-v8a \
+  -DANDROID_PLATFORM=android-24 \
+  -DCMAKE_BUILD_TYPE=Release
+
+make -j$(sysctl -n hw.logicalcpu)
+```
+
+Copy the output into the Flutter jniLibs directory:
+
+```bash
+mkdir -p app/android/app/src/main/jniLibs/arm64-v8a
+cp native/build_android/whisper_bridge.so \
+   app/android/app/src/main/jniLibs/arm64-v8a/libwhisper_bridge.so
+```
+
+> The `lib` prefix is required — Android's dynamic linker looks for `libwhisper_bridge.so` when the Dart code calls `DynamicLibrary.open('libwhisper_bridge.so')`.
+
+### Step C: Push the Whisper model to the device
+
+The model is too large to bundle in the APK. Push it to the app's external storage directory:
+
+```bash
+# Install the app first (Step D), then:
+adb push models/ggml-base.bin \
+  /sdcard/Android/data/com.voice_to_text_local/files/ggml-base.bin
+```
+
+The app searches this exact path automatically.
+
+### Step D: Build and run
+
+```bash
+cd app
+flutter devices          # confirm your device is listed
+flutter run -d <device-id>
+```
+
+Or build a release APK for sideloading:
+```bash
+flutter build apk --release
+# output: app/build/app/outputs/flutter-apk/app-release.apk
+adb install app/build/app/outputs/flutter-apk/app-release.apk
+```
+
+### Android Troubleshooting
+
+**`UnsatisfiedLinkError: libwhisper_bridge.so`**
+- Check `app/android/app/src/main/jniLibs/arm64-v8a/libwhisper_bridge.so` exists
+- Rebuild and reinstall the APK — library changes require a fresh install, not just hot restart
+
+**"Model file not found"**
+- Run Step C above to push the model
+- Check the exact package name by running `adb shell pm list packages | grep voice` and adjust the path if it differs from `com.voice_to_text_local`
+
+**Microphone permission denied**
+- Go to Android Settings → Apps → Voice to Text → Permissions → Microphone → Allow
+
+---
+
 **Last updated:** February 2026

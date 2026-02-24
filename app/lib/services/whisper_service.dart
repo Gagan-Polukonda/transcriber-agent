@@ -59,7 +59,7 @@ class WhisperService {
 
     try {
       // Find model file
-      final modelPath = _findModelFile(_currentModel);
+      final modelPath = await _findModelFile(_currentModel);
 
       // Call native transcribe function
       final audioCStr = audioPath.toNativeUtf8();
@@ -119,16 +119,32 @@ class WhisperService {
     );
   }
 
-  String _findModelFile(String model) {
+  Future<String> _findModelFile(String model) async {
     final modelFileName = 'ggml-$model.bin';
-    final searchPaths = [
-      // From app directory when running flutter run from app/
-      '${Directory.current.path}/models/$modelFileName',
-      // From parent of app directory (project root)
-      '${Directory.current.path}/../models/$modelFileName',
-      // From grandparent directory (if running from nested location)
-      '${Directory.current.path}/../../models/$modelFileName',
-    ];
+    final List<String> searchPaths = [];
+
+    if (Platform.isAndroid) {
+      // App-specific external directory — push model here with:
+      //   adb push models/ggml-base.bin \
+      //     /sdcard/Android/data/com.voice_to_text_local/files/ggml-base.bin
+      final extDir = await getExternalStorageDirectory();
+      if (extDir != null) {
+        searchPaths.add('${extDir.path}/$modelFileName');
+      }
+      // App internal documents directory as fallback
+      final docsDir = await getApplicationDocumentsDirectory();
+      searchPaths.add('${docsDir.path}/$modelFileName');
+    } else {
+      // Desktop: model lives in models/ at repo root
+      searchPaths.addAll([
+        // From app directory when running flutter run from app/
+        '${Directory.current.path}/models/$modelFileName',
+        // From parent of app directory (project root)
+        '${Directory.current.path}/../models/$modelFileName',
+        // From grandparent directory (if running from nested location)
+        '${Directory.current.path}/../../models/$modelFileName',
+      ]);
+    }
 
     for (final path in searchPaths) {
       final file = File(path);
@@ -137,11 +153,17 @@ class WhisperService {
       }
     }
 
+    final hint = Platform.isAndroid
+        ? 'Push the model to the device with:\n'
+          '  adb push models/ggml-base.bin \\\n'
+          '    /sdcard/Android/data/com.voice_to_text_local/files/ggml-base.bin'
+        : 'Ensure the model file exists in the repo at: models/$modelFileName';
+
     throw Exception(
       'Model file not found: $modelFileName\n'
-      'Searched paths:\n'
+      'Searched:\n'
       '${searchPaths.map((p) => '  - $p').join('\n')}\n'
-      'Please ensure the model file exists in the repo at: /models/$modelFileName',
+      '$hint',
     );
   }
 }
