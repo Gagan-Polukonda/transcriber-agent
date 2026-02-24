@@ -9,12 +9,38 @@ option(WHISPER_SUPPORT_OPENBLAS "Support OpenBLAS" OFF)
 option(WHISPER_SUPPORT_COREML "Support CoreML" OFF)
 option(WHISPER_CUDA "Build with CUDA support" OFF)
 
-# For Android, force static linking for whisper.cpp
+# On Android, apply build-time patch to ensure whisper builds as static library
 if(ANDROID)
-    set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build as static library" FORCE)
-    # Override the option in whisper.cpp before it processes it
+    set(WHISPER_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/whisper.cpp/CMakeLists.txt")
+    if(EXISTS "${WHISPER_CMAKE_PATH}" AND NOT WHISPER_CMAKE_PATCHED)
+        # Read the CMakeLists.txt file
+        file(READ "${WHISPER_CMAKE_PATH}" WHISPER_CMAKE_CONTENT)
+
+        # Check if patch needs to be applied
+        if(NOT WHISPER_CMAKE_CONTENT MATCHES "ANDROID_STATIC_PATCH")
+            message(STATUS "Applying Android static linking patch to whisper.cpp...")
+
+            # Add Android conditional after EMSCRIPTEN section
+            string(REPLACE
+                "else()\n    if (MINGW)"
+                "elseif(ANDROID)\n    # ANDROID_STATIC_PATCH: Force static library for embedding in JNI\n    set(BUILD_SHARED_LIBS_DEFAULT OFF)\nelse()\n    if (MINGW)"
+                WHISPER_CMAKE_CONTENT "${WHISPER_CMAKE_CONTENT}")
+
+            # Force BUILD_SHARED_LIBS OFF on Android in the option() call
+            string(REPLACE
+                "option(BUILD_SHARED_LIBS \"build shared libraries\" \${BUILD_SHARED_LIBS_DEFAULT})"
+                "if(ANDROID)\n    set(BUILD_SHARED_LIBS OFF CACHE BOOL \"build shared libraries\" FORCE)\nelse()\n    option(BUILD_SHARED_LIBS \"build shared libraries\" \${BUILD_SHARED_LIBS_DEFAULT})\nendif()"
+                WHISPER_CMAKE_CONTENT "${WHISPER_CMAKE_CONTENT}")
+
+            # Write back the patched content
+            file(WRITE "${WHISPER_CMAKE_PATH}" "${WHISPER_CMAKE_CONTENT}")
+            set(WHISPER_CMAKE_PATCHED TRUE CACHE BOOL "" FORCE)
+            message(STATUS "Whisper.cpp patched successfully")
+        endif()
+    endif()
+
+    # Force static build options
     set(BUILD_SHARED_LIBS OFF)
-    # Disable tests and examples for faster build
     set(WHISPER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
     set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     set(WHISPER_BUILD_SERVER OFF CACHE BOOL "" FORCE)
@@ -22,13 +48,6 @@ endif()
 
 # Find required packages
 find_package(Threads REQUIRED)
-
-# Force static library on Android by controlling the option before subdirectory
-if(ANDROID)
-    # Override BUILD_SHARED_LIBS through command-line equivalent
-    # This needs to be set before add_subdirectory processes it
-    set(BUILD_SHARED_LIBS OFF)
-endif()
 
 # Add whisper.cpp as subdirectory (must be cloned into native/whisper.cpp/)
 add_subdirectory(whisper.cpp)
