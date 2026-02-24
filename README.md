@@ -12,9 +12,7 @@ A fully offline voice-to-text transcription application that runs 100% locally o
 💾 **Local Storage** - Transcripts saved locally
 🎯 **Simple UI** - Intuitive recording and transcript management
 
-## Quick Start
-
-### Installation
+## Quick Start (macOS)
 
 1. **Clone the repository**
    ```bash
@@ -22,24 +20,31 @@ A fully offline voice-to-text transcription application that runs 100% locally o
    cd transcriber-agent
    ```
 
-2. **Follow the setup guide**
+2. **Download a Whisper model** into `models/` at the repo root
    ```bash
-   cat SETUP.md
+   mkdir -p models
+   curl -L https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin \
+        -o models/ggml-base.bin
    ```
 
-3. **Run the build script**
+3. **Build the native Whisper bridge** (whisper.cpp is already in the repo)
    ```bash
-   chmod +x build.sh
-   ./build.sh
+   cd native && mkdir -p build && cd build
+   cmake .. && make -j$(sysctl -n hw.logicalcpu)
+   cd ../../
    ```
 
-4. **Download Whisper models** (see SETUP.md)
-
-5. **Launch the app**
+4. **Install Flutter dependencies**
    ```bash
-   cd app
-   flutter run
+   cd app && flutter pub get
    ```
+
+5. **Run the app**
+   ```bash
+   flutter run -d macos
+   ```
+
+See [SETUP.md](SETUP.md) for full details, troubleshooting, and Android/Linux setup.
 
 ## System Requirements
 
@@ -76,18 +81,21 @@ transcriber-agent/
 │
 ├── native/                  # C++ Whisper bridge
 │   ├── whisper_bridge.cpp   # FFI wrapper
-│   └── CMakeLists.txt       # Build configuration
+│   ├── CMakeLists.txt       # Build configuration
+│   ├── build/               # Compiled output (gitignored)
+│   └── whisper.cpp/         # whisper.cpp source (included — do not re-clone)
 │
-├── models/                  # Whisper model files (.bin)
-│   ├── ggml-tiny.bin       # Fast, 75MB
-│   ├── ggml-base.bin       # Balanced, 140MB
-│   └── ggml-small.bin      # Accurate, 465MB
+├── models/                  # ← Whisper model files go here (repo root)
+│   └── ggml-base.bin        # Default model (140 MB) — download separately
 │
-├── transcripts/             # Output folder for exports
+├── data/                    # Runtime data — auto-created, gitignored
+│   ├── audio/               # Recorded WAV files
+│   └── voice_transcripts.db # SQLite transcript database
+│
 ├── SETUP.md                 # Detailed setup instructions
 ├── ARCHITECTURE.md          # Technical architecture
 ├── build.sh                 # Build automation script
-└── README.md               # This file
+└── README.md                # This file
 ```
 
 ## Architecture
@@ -154,9 +162,9 @@ Default is **Base** (good balance). Change in Settings.
 - Models can be bundled or downloaded on first run
 
 ### macOS
-- Grant microphone access via System Preferences
-- App can be codesigned and notarized
-- Works on Intel and Apple Silicon Macs
+- Grant microphone access via System Preferences → Security & Privacy → Microphone
+- Runs in CPU-only mode (`use_gpu=false`) for compatibility with Intel Iris/HD GPUs where the Metal backend produces incorrect results
+- Works on both Intel and Apple Silicon Macs
 
 ### Linux
 - Works with ALSA and PulseAudio
@@ -185,23 +193,25 @@ flutter build linux --release
 
 ## Troubleshooting
 
-**Issue: "libwhisper_bridge.so not found"**
-- Ensure native library is compiled (run build.sh)
-- Check that .so/.dylib file exists in correct location
+**Issue: "whisper_bridge.dylib not found"**
+- Build the native bridge: `cd native/build && cmake .. && make -j$(sysctl -n hw.logicalcpu)`
+- After rebuilding, press `q` and do a full re-run — hot restart (`R`) won't pick up a new dylib
 
 **Issue: "Model file not found"**
-- Download models from HuggingFace (see SETUP.md)
-- Verify file paths match what app expects
+- Place your `.bin` file in `models/` at the **repo root** (e.g. `models/ggml-base.bin`)
+- Download from HuggingFace — see [SETUP.md](SETUP.md) for the curl commands
+- Run `flutter run` from inside the `app/` directory
 
-**Issue: Poor transcription quality**
-- Use "Base" or "Small" model for better accuracy
-- Reduce background noise
-- Speak clearly and at normal pace
+**Issue: Empty transcription / no text returned**
+- Low mic volume is automatically normalised — just speak clearly
+- If it still fails, check `data/audio/` for non-empty `.wav` files
+- If `n_segments=0` appears in logs, the Intel GPU Metal bug is already fixed with `use_gpu=false`
 
-**Issue: App crashes on startup**
-- Check Flutter doctor: `flutter doctor`
-- Ensure all dependencies installed
-- Check device has enough free RAM and storage
+**Issue: SQLite error / database readonly**
+- Delete the stale DB: `rm data/voice_transcripts.db` — the app recreates it on next launch
+
+**Issue: Microphone permission denied**
+- System Preferences → Security & Privacy → Microphone → enable the app
 
 For more help, see [SETUP.md](SETUP.md).
 
@@ -240,7 +250,7 @@ Contributions welcome! Areas for improvement:
 ---
 
 **Version**: 1.0.0
-**Last Updated**: February 2024
+**Last Updated**: February 2026
 **Status**: Active Development
 
 Built with ❤️ for offline-first privacy.

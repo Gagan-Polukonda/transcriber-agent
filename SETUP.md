@@ -1,282 +1,203 @@
-# Voice to Text - Local Setup Guide
+# Voice to Text — Local Setup Guide
 
-This is a fully offline voice-to-text transcription app using Flutter and Whisper.cpp. Everything runs locally on your device with zero network access.
+Fully offline voice-to-text transcription using Flutter + Whisper.cpp. No internet, no cloud, everything on your Mac.
+
+---
 
 ## Prerequisites
 
-### Required Tools
+| Tool | Version | Install |
+|------|---------|---------|
+| Flutter SDK | 3.0+ | https://flutter.dev/docs/get-started/install |
+| Xcode CLT | latest | `xcode-select --install` |
+| CMake | 3.14+ | `brew install cmake` |
+| CocoaPods | latest | `brew install cocoapods` |
 
-1. **Flutter SDK** (3.0+)
-   - Download: https://flutter.dev/docs/get-started/install
-   - Verify: `flutter --version`
-
-2. **Android Setup** (for mobile)
-   - Android SDK (API 21+)
-   - Android NDK (for compiling native code)
-   - Set `ANDROID_HOME` and `ANDROID_NDK_ROOT` environment variables
-   - Android Studio (recommended)
-
-3. **macOS Setup** (for Mac)
-   - Xcode Command Line Tools: `xcode-select --install`
-   - CocoaPods: `sudo gem install cocoapods`
-
-4. **Linux Setup** (for Desktop)
-   - Build essentials: `sudo apt-get install build-essential cmake`
-   - GTK development: `sudo apt-get install libgtk-3-dev`
-
-5. **CMake** (for building native code)
-   - Install: https://cmake.org/download/
-   - Verify: `cmake --version`
-
-## Project Structure
-
-```
-voice_to_text_local/
-├── app/                    # Flutter app source
-│   ├── lib/
-│   │   ├── main.dart
-│   │   ├── screens/        # UI screens
-│   │   ├── services/       # Business logic
-│   │   └── models/         # Data models
-│   ├── pubspec.yaml        # Flutter dependencies
-│   ├── android/            # Android native setup
-│   ├── macos/              # macOS native setup
-│   └── linux/              # Linux native setup
-├── native/                 # Whisper.cpp native bridge
-│   ├── whisper_bridge.cpp  # FFI wrapper
-│   └── CMakeLists.txt      # Build configuration
-├── models/                 # Whisper model files
-├── transcripts/            # Output transcripts folder
-└── SETUP.md                # This file
-```
-
-## Step 1: Install Flutter & Dependencies
-
-### macOS / Linux
-
+Verify Flutter is working:
 ```bash
-# Clone Flutter (if not already installed)
-git clone https://github.com/flutter/flutter.git -b stable
-
-# Add to PATH
-export PATH="$PATH:`pwd`/flutter/bin"
-
-# Get dependencies
-flutter pub global activate fvm  # (Optional) for Flutter version management
-
-# Verify setup
 flutter doctor
 ```
 
-Fix any issues reported by `flutter doctor` before proceeding.
+Fix any critical issues before proceeding.
 
-### Android
+---
 
-1. Install Android Studio from https://developer.android.com/studio
-2. Open Android Studio and install SDK/NDK via "SDK Manager"
-3. Set environment variables:
-   ```bash
-   export ANDROID_HOME=$HOME/Android/Sdk
-   export ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/[version]
-   export PATH=$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools
-   ```
+## Repository Layout
 
-## Step 2: Set Up Flutter Project
-
-```bash
-# Navigate to the app directory
-cd app
-
-# Get Flutter dependencies
-flutter pub get
-
-# Generate FFI bindings (for Whisper bridge)
-flutter pub run ffigen
+```
+transcriber-agent/
+├── app/                        # Flutter app
+│   ├── lib/
+│   │   ├── main.dart
+│   │   ├── screens/
+│   │   ├── services/
+│   │   └── models/
+│   ├── macos/
+│   │   └── Runner/
+│   │       ├── DebugProfile.entitlements   # sandbox disabled, mic permission
+│   │       └── Info.plist                  # NSMicrophoneUsageDescription set
+│   └── pubspec.yaml
+│
+├── native/
+│   ├── whisper_bridge.cpp      # FFI C++ wrapper
+│   ├── CMakeLists.txt
+│   ├── build/                  # build output (gitignored)
+│   └── whisper.cpp/            # whisper.cpp source — already in repo, do NOT re-clone
+│
+├── models/                     # ← Put your .bin model files HERE (repo root)
+│   └── ggml-base.bin           # default model (140 MB)
+│
+├── data/                       # Runtime data — auto-created by app, gitignored
+│   ├── audio/                  # Recorded .wav files
+│   └── voice_transcripts.db    # SQLite database
+│
+├── build.sh
+├── README.md
+├── SETUP.md                    # This file
+└── ARCHITECTURE.md
 ```
 
-## Step 3: Download Whisper Models
+---
 
-Models must be placed in `models/` directory. Download from OpenAI's Whisper repository:
+## Step 1: Download a Whisper Model
+
+Models live in `models/` at the **repo root** (not inside `app/`).
 
 ```bash
-# Create models directory if not exists
+# From repo root:
 mkdir -p models
 
-# Option A: Download with curl
-# Tiny model (75 MB) - Fastest, ~1GB RAM
-curl -L https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin -o models/ggml-tiny.bin
+# Base model — recommended (140 MB, good quality, fast enough)
+curl -L https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin \
+     -o models/ggml-base.bin
 
-# Base model (140 MB) - Balanced, ~1.5GB RAM
-curl -L https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin -o models/ggml-base.bin
+# Optional: Tiny model (75 MB, fastest)
+# curl -L https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin \
+#      -o models/ggml-tiny.bin
 
-# Small model (465 MB) - Most accurate, ~2GB RAM
-curl -L https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin -o models/ggml-small.bin
-
-# Option B: Or download manually from HuggingFace
-# Visit: https://huggingface.co/ggerganov/whisper.cpp
+# Optional: Small model (465 MB, best quality)
+# curl -L https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin \
+#      -o models/ggml-small.bin
 ```
 
-## Step 4: Compile Native Whisper Bridge
-
-### For Android
-
-```bash
-# Build the native library
-mkdir -p app/android/app/libs
-
-# You'll need whisper.cpp source. Clone it:
-git clone https://github.com/ggerganov/whisper.cpp.git
-
-# Use Android NDK to build
-cd native
-mkdir build_android
-cd build_android
-
-cmake .. \
-  -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake \
-  -DANDROID_ABI=arm64-v8a \
-  -DANDROID_PLATFORM=android-21 \
-  -DCMAKE_BUILD_TYPE=Release
-
-make -j4
-# Output: libwhisper_bridge.so
+The app reads the model at runtime from:
 ```
+<repo-root>/models/ggml-<model-name>.bin
+```
+(resolved as `../models/` relative to the `app/` directory when running `flutter run`.)
 
-### For macOS / Linux
+---
+
+## Step 2: Build the Native Whisper Bridge
+
+whisper.cpp is already included in the repo at `native/whisper.cpp/` — **no need to clone it**.
 
 ```bash
+# From repo root:
 cd native
-mkdir build
+mkdir -p build
 cd build
 
 cmake ..
-make -j4
-
-# Output: libwhisper_bridge.dylib (macOS) or libwhisper_bridge.so (Linux)
+make -j$(sysctl -n hw.logicalcpu)
 ```
 
-## Step 5: Run the App
+This produces:
+```
+native/build/whisper_bridge.dylib   ← loaded by the Flutter app at runtime
+native/build/libwhisper.a           ← static lib linked into the bridge
+```
 
-### Android Device/Emulator
+> **After rebuilding the dylib**, you must do a full stop and re-run — hot restart (`R`) does NOT reload dynamic libraries since the process caches them. Press `q` in the Flutter terminal, then `flutter run -d macos` again.
+
+---
+
+## Step 3: Install Flutter Dependencies
 
 ```bash
 cd app
-flutter devices  # List connected devices
-flutter run -d <device_id>
+flutter pub get
 ```
 
-### macOS
+No extra `ffigen` step is needed — the generated bindings (`lib/whisper_ffi.dart`) are already committed.
+
+---
+
+## Step 4: Run the App
 
 ```bash
 cd app
 flutter run -d macos
 ```
 
-### Linux
-
-```bash
-cd app
-flutter run -d linux
-```
-
-## Step 6: Grant Permissions
-
-### Android
-
-The app requests microphone permission at runtime. Grant it when prompted.
-
-### macOS
-
-Grant microphone access in System Preferences → Security & Privacy → Microphone
-
-### Linux
-
-Audio should work out of the box on most distributions.
-
-## Troubleshooting
-
-### "libwhisper_bridge.so not found"
-- Ensure native library is compiled and placed in correct location
-- On Android: Check `app/android/app/libs/arm64-v8a/libwhisper_bridge.so`
-- On macOS: Check `app/macos/Runner/libwhisper_bridge.dylib`
-
-### "Microphone permission denied"
-- Android: Check app permissions in Settings → Apps
-- macOS: System Preferences → Security & Privacy → Microphone
-- Linux: Check ALSA/PulseAudio configuration
-
-### "Model file not found"
-- Ensure `.bin` files are in `~/Documents/voice_transcripts/whisper_models/` or bundled in app
-- Download models from HuggingFace (see Step 3)
-
-### "Recording quality is poor"
-- Reduce background noise
-- Move closer to microphone
-- Use "Small" model for better accuracy at cost of speed
-
-## Performance Tuning
-
-| Model | Size | Speed | Accuracy | RAM |
-|-------|------|-------|----------|-----|
-| Tiny | 75 MB | Very Fast | Good | 1 GB |
-| Base | 140 MB | Fast | Better | 1.5 GB |
-| Small | 465 MB | Moderate | Best | 2 GB |
-
-For slow devices, use "Tiny" model. For best results, use "Small" model.
-
-## Privacy Guarantee
-
-✅ **100% Offline** - No internet required
-✅ **No Cloud** - Everything stored locally
-✅ **No Tracking** - No analytics or telemetry
-✅ **No Permissions** - Only microphone access
-
-## Building for Release
-
-### Android Release APK
-
-```bash
-cd app
-flutter build apk --release
-# Output: build/app/outputs/flutter-apk/app-release.apk
-```
-
-### Android Release AAB (for Play Store)
-
-```bash
-flutter build appbundle --release
-# Output: build/app/outputs/bundle/release/app-release.aab
-```
-
-### macOS Release
-
-```bash
-flutter build macos --release
-# Output: build/macos/Build/Products/Release/
-```
-
-### Linux Release
-
-```bash
-flutter build linux --release
-# Output: build/linux/x64/release/bundle/
-```
-
-## Next Steps
-
-1. ✅ Complete the setup steps above
-2. ✅ Test recording and transcription on your device
-3. ✅ Adjust model size based on performance
-4. ✅ Review transcripts and export as needed
-
-## Support
-
-For issues with:
-- **Flutter**: https://flutter.dev/docs
-- **Whisper.cpp**: https://github.com/ggerganov/whisper.cpp
-- **This App**: Check the GitHub issues
+On first launch, macOS will prompt for **microphone access** — click Allow. If you accidentally deny it, go to:
+> System Preferences → Security & Privacy → Microphone → enable the app
 
 ---
 
-**Last Updated:** 2024
-**Version:** 1.0.0
+## How It Works at Runtime
+
+1. **Record** — tap the mic button; audio is recorded at 16 kHz mono WAV
+2. **Stop** — recording saved to `data/audio/<timestamp>.wav` (repo root)
+3. **Transcribe** — whisper.cpp loads the model from `models/` and processes the WAV
+4. **Save** — transcript stored in `data/voice_transcripts.db`
+5. **Export** — TXT/JSON exports written to `data/`
+
+The `data/` directory is created automatically and is gitignored.
+
+---
+
+## Platform Notes
+
+### macOS — Intel (Iris 645 and similar GPUs)
+
+GPU acceleration is **disabled** in the bridge (`use_gpu = false`) because the Metal backend on Intel integrated GPUs produces incorrect computation results with whisper.cpp. The app uses CPU-only mode (Accelerate / BLAS), which is stable and fast enough.
+
+Apple Silicon Macs are unaffected but CPU mode also works fine there.
+
+### Microphone Access
+
+`NSMicrophoneUsageDescription` is already set in `app/macos/Runner/Info.plist`. The app sandbox is disabled in `DebugProfile.entitlements` and `Release.entitlements` so the dylib can be loaded from outside the bundle.
+
+---
+
+## Troubleshooting
+
+### "Model file not found"
+- Confirm the file exists: `ls -lh models/ggml-base.bin` (from repo root)
+- The app resolves the path as `../models/ggml-base.bin` relative to `app/`
+- Run `flutter run` from inside the `app/` directory, not from repo root
+
+### "whisper_bridge.dylib not found"
+- Build the native library (Step 2 above)
+- Confirm: `ls native/build/whisper_bridge.dylib`
+- After a rebuild, press `q` and re-run — don't use hot restart
+
+### Empty transcription / no text
+- Speak clearly; the app normalises low-amplitude audio automatically
+- Check that the `.wav` file is non-empty: `ls -lh data/audio/`
+- If `n_segments=0` persists, this is the GPU bug — already fixed with `use_gpu=false`
+
+### SQLite errors / DB readonly
+- Delete the stale database: `rm data/voice_transcripts.db`
+- The app will recreate it on next launch
+
+### Microphone permission denied
+- System Preferences → Security & Privacy → Microphone → enable the app
+- If the entry is missing, run the app once and then check again
+
+---
+
+## Model Quick Reference
+
+| Model | File | Size | RAM | Quality |
+|-------|------|------|-----|---------|
+| Tiny | `ggml-tiny.bin` | 75 MB | ~1 GB | Good |
+| **Base** | **`ggml-base.bin`** | **140 MB** | **~1.5 GB** | **Better (default)** |
+| Small | `ggml-small.bin` | 465 MB | ~2 GB | Best |
+
+Change the active model in the app's Settings screen.
+
+---
+
+**Last updated:** February 2026
