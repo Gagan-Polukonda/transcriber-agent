@@ -58,15 +58,8 @@ class WhisperService {
     await initialize();
 
     try {
-      // Get model path
-      final appDir = await getApplicationDocumentsDirectory();
-      final modelDir = '${appDir.path}/whisper_models';
-      final modelPath = '$modelDir/ggml-$_currentModel.bin';
-
-      // Check if model exists
-      if (!File(modelPath).existsSync()) {
-        throw Exception('Model file not found at $modelPath');
-      }
+      // Find model file
+      final modelPath = _findModelFile(_currentModel);
 
       // Call native transcribe function
       final audioCStr = audioPath.toNativeUtf8();
@@ -123,6 +116,32 @@ class WhisperService {
       'whisper_bridge.dylib not found. Searched paths:\n'
       '${searchPaths.map((p) => '  - $p').join('\n')}\n'
       'Run ./build.sh from the project root to build the native library.',
+    );
+  }
+
+  String _findModelFile(String model) {
+    final modelFileName = 'ggml-$model.bin';
+    final searchPaths = [
+      // From app directory when running flutter run from app/
+      '${Directory.current.path}/models/$modelFileName',
+      // From parent of app directory (project root)
+      '${Directory.current.path}/../models/$modelFileName',
+      // From grandparent directory (if running from nested location)
+      '${Directory.current.path}/../../models/$modelFileName',
+    ];
+
+    for (final path in searchPaths) {
+      final file = File(path);
+      if (file.existsSync()) {
+        return file.absolute.path;
+      }
+    }
+
+    throw Exception(
+      'Model file not found: $modelFileName\n'
+      'Searched paths:\n'
+      '${searchPaths.map((p) => '  - $p').join('\n')}\n'
+      'Please ensure the model file exists in the repo at: /models/$modelFileName',
     );
   }
 }
