@@ -12,6 +12,12 @@ option(WHISPER_CUDA "Build with CUDA support" OFF)
 # For Android, force static linking for whisper.cpp
 if(ANDROID)
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build as static library" FORCE)
+    # Override the option in whisper.cpp before it processes it
+    set(BUILD_SHARED_LIBS OFF)
+    # Disable tests and examples for faster build
+    set(WHISPER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(WHISPER_BUILD_SERVER OFF CACHE BOOL "" FORCE)
 endif()
 
 # Find required packages
@@ -29,7 +35,12 @@ add_library(whisper_bridge SHARED ${WHISPER_SOURCES})
 
 # Link whisper library from whisper.cpp build
 # On Android, whisper is built as static and will be embedded in whisper_bridge.so
-target_link_libraries(whisper_bridge PRIVATE Threads::Threads whisper)
+if(ANDROID)
+    # Force static linking by using the static library directly
+    target_link_libraries(whisper_bridge PRIVATE Threads::Threads whisper -static)
+else()
+    target_link_libraries(whisper_bridge PRIVATE Threads::Threads whisper)
+endif()
 
 # Include whisper.cpp headers
 target_include_directories(whisper_bridge PUBLIC
