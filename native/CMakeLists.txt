@@ -43,6 +43,12 @@ if(APPLE AND NOT IOS)
         PREFIX ""
         SUFFIX ".dylib"
     )
+elseif(ANDROID)
+    # Android uses .so with lib prefix
+    set_target_properties(whisper_bridge PROPERTIES
+        PREFIX "lib"
+        SUFFIX ".so"
+    )
 elseif(UNIX AND NOT APPLE)
     set_target_properties(whisper_bridge PROPERTIES
         PREFIX ""
