@@ -29,16 +29,19 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        // Ensure native libraries are included
-        ndk {
-            abiFilters.addAll(listOf("arm64-v8a"))
+        // Configure CMake for native code
+        externalNativeBuild {
+            cmake {
+                cppFlags("-std=c++17")
+                arguments("-DANDROID_STL=c++_shared")
+            }
         }
     }
 
-    sourceSets {
-        getByName("main") {
-            // Explicitly include jniLibs
-            jniLibs.srcDir("src/main/jniLibs")
+    externalNativeBuild {
+        cmake {
+            path("CMakeLists.txt")
+            version("3.22.1")
         }
     }
 
