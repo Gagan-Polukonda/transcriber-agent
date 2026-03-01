@@ -16,7 +16,7 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+        jvmTarget = "17"
     }
 
     defaultConfig {
@@ -41,7 +41,6 @@ android {
     externalNativeBuild {
         cmake {
             path("CMakeLists.txt")
-            version("3.22.1")
         }
     }
 
