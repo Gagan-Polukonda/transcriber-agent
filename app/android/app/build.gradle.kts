@@ -28,6 +28,18 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // Ensure native libraries are included
+        ndk {
+            abiFilters.addAll(listOf("arm64-v8a"))
+        }
+    }
+
+    sourceSets {
+        getByName("main") {
+            // Explicitly include jniLibs
+            jniLibs.srcDir("src/main/jniLibs")
+        }
     }
 
     buildTypes {
