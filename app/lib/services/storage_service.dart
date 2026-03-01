@@ -8,11 +8,17 @@ class StorageService {
   late Database _db;
 
   Future<Directory> _getDataDir() async {
-    final downloadDir = await getDownloadsDirectory();
-    if (downloadDir == null) {
-      throw Exception('Could not access Downloads directory');
+    final Directory baseDir;
+    if (Platform.isAndroid) {
+      baseDir = await getApplicationDocumentsDirectory();
+    } else {
+      final downloadDir = await getDownloadsDirectory();
+      if (downloadDir == null) {
+        throw Exception('Could not access Downloads directory');
+      }
+      baseDir = downloadDir;
     }
-    return Directory('${downloadDir.path}/voice_transcripts');
+    return Directory('${baseDir.path}/voice_transcripts');
   }
 
   Future<void> initDb() async {

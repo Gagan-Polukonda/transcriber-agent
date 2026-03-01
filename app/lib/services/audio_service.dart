@@ -22,12 +22,18 @@ class AudioService {
       throw Exception('Microphone permission denied. Please grant access in System Settings → Privacy → Microphone.');
     }
 
-    // Save to Downloads folder for accessibility
-    final downloadDir = await getDownloadsDirectory();
-    if (downloadDir == null) {
-      throw Exception('Could not access Downloads directory');
+    // Save to app documents dir (works on Android and macOS)
+    final Directory baseDir;
+    if (Platform.isAndroid) {
+      baseDir = await getApplicationDocumentsDirectory();
+    } else {
+      final downloadDir = await getDownloadsDirectory();
+      if (downloadDir == null) {
+        throw Exception('Could not access Downloads directory');
+      }
+      baseDir = downloadDir;
     }
-    final audioDir = Directory('${downloadDir.path}/voice_transcripts/audio');
+    final audioDir = Directory('${baseDir.path}/voice_transcripts/audio');
     if (!audioDir.existsSync()) {
       audioDir.createSync(recursive: true);
     }
