@@ -10,11 +10,7 @@ class StorageService {
   Future<Directory> _getDataDir() async {
     final Directory baseDir;
     if (Platform.isAndroid) {
-      final externalDir = await getExternalStorageDirectory();
-      if (externalDir == null) {
-        throw Exception('Could not access external storage');
-      }
-      baseDir = externalDir;
+      baseDir = Directory('/storage/emulated/0/Android/media/com.example.voice_to_text_local/files');
     } else {
       final downloadDir = await getDownloadsDirectory();
       if (downloadDir == null) {
