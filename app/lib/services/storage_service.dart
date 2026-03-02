@@ -10,7 +10,11 @@ class StorageService {
   Future<Directory> _getDataDir() async {
     final Directory baseDir;
     if (Platform.isAndroid) {
-      baseDir = await getApplicationDocumentsDirectory();
+      final externalDir = await getExternalStorageDirectory();
+      if (externalDir == null) {
+        throw Exception('Could not access external storage');
+      }
+      baseDir = externalDir;
     } else {
       final downloadDir = await getDownloadsDirectory();
       if (downloadDir == null) {
