@@ -146,7 +146,6 @@ char* init_whisper(const char* model_path) {
     auto cparams = whisper_context_default_params();
     // Disable GPU on Android to save memory
     cparams.use_gpu = false;
-    cparams.n_threads = 2;  // Limit threads on mobile
 
     LOGD("Loading model...");
     g_ctx = whisper_init_from_file_with_params(model_path, cparams);
@@ -169,7 +168,6 @@ char* transcribe(const char* audio_path, const char* model_path) {
         LOGD("No context found, initializing model...");
         auto cparams = whisper_context_default_params();
         cparams.use_gpu = false;
-        cparams.n_threads = 2;  // Limit threads on mobile
         g_ctx = whisper_init_from_file_with_params(model_path, cparams);
         if (!g_ctx) {
             LOGE("Failed to initialize context with model: %s", model_path);
@@ -212,7 +210,6 @@ char* transcribe(const char* audio_path, const char* model_path) {
     params.single_segment = false;
     params.no_speech_thold = 0.3f;  // lower threshold to detect quieter speech
     params.logprob_thold = -3.0f;   // allow more uncertain decodings
-    params.suppress_non_speech_tokens = true;  // Skip non-speech tokens on mobile
 
     LOGD("Starting transcription with %d threads...", params.n_threads);
 
