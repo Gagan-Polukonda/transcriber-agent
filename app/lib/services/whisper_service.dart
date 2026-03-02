@@ -58,23 +58,47 @@ class WhisperService {
     await initialize();
 
     try {
+      print('[WhisperService] Starting transcription for: $audioPath');
+
       // Find model file
       final modelPath = await _findModelFile(_currentModel);
+      print('[WhisperService] Using model: $modelPath');
+
+      // Verify audio file exists
+      if (!await File(audioPath).exists()) {
+        throw Exception('Audio file not found: $audioPath');
+      }
+      print('[WhisperService] Audio file exists');
+
+      // Verify model file exists
+      if (!await File(modelPath).exists()) {
+        throw Exception('Model file not found: $modelPath');
+      }
+      print('[WhisperService] Model file exists');
 
       // Call native transcribe function
+      print('[WhisperService] Calling native transcribe...');
       final audioCStr = audioPath.toNativeUtf8();
       final modelCStr = modelPath.toNativeUtf8();
 
       final resultPtr = transcribe(audioCStr, modelCStr);
       final result = resultPtr.toDartString();
+      print('[WhisperService] Native call returned: $result');
 
       // Free C strings
       malloc.free(audioCStr);
       malloc.free(modelCStr);
       freeString(resultPtr);
 
+      // Check for errors from native code
+      if (result.startsWith('ERROR:')) {
+        throw Exception('Native error: $result');
+      }
+
+      print('[WhisperService] Transcription successful: ${result.substring(0, 100)}...');
       return result;
     } catch (e) {
+      print('[WhisperService] Transcription error: $e');
       throw Exception('Transcription failed: $e');
     }
   }

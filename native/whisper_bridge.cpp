@@ -5,9 +5,16 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <mutex>
+#include <android/log.h>
 
-// Global whisper context
+#define LOG_TAG "WhisperBridge"
+#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+
+// Global whisper context with mutex for thread safety
 static struct whisper_context* g_ctx = nullptr;
+static std::mutex g_ctx_mutex;
 
 // Read a WAV file and return PCM float samples (mono 16kHz)
 static bool read_wav(const char* path, std::vector<float>& pcmf32) {
@@ -126,53 +133,77 @@ extern "C" {
 
 // Initialize whisper with model path
 char* init_whisper(const char* model_path) {
+    std::lock_guard<std::mutex> lock(g_ctx_mutex);
+
+    LOGD("Initializing Whisper with model: %s", model_path);
+
     if (g_ctx) {
+        LOGD("Cleaning up existing context");
         whisper_free(g_ctx);
         g_ctx = nullptr;
     }
 
     auto cparams = whisper_context_default_params();
-    cparams.use_gpu = false;  // Intel Iris Metal backend produces wrong results on this Mac
+    // Disable GPU on Android to save memory
+    cparams.use_gpu = false;
+    cparams.n_threads = 2;  // Limit threads on mobile
+
+    LOGD("Loading model...");
     g_ctx = whisper_init_from_file_with_params(model_path, cparams);
     if (!g_ctx) {
+        LOGE("Failed to load model from: %s", model_path);
         return alloc_string("ERROR: Failed to load model");
     }
+    LOGD("Model loaded successfully");
     return alloc_string("OK");
 }
 
 // Transcribe audio file
 char* transcribe(const char* audio_path, const char* model_path) {
+    std::lock_guard<std::mutex> lock(g_ctx_mutex);
+
+    LOGD("Transcribing audio: %s with model: %s", audio_path, model_path);
+
     // Initialize model if needed
     if (!g_ctx) {
+        LOGD("No context found, initializing model...");
         auto cparams = whisper_context_default_params();
-    cparams.use_gpu = false;  // Intel Iris Metal backend produces wrong results on this Mac
-    g_ctx = whisper_init_from_file_with_params(model_path, cparams);
+        cparams.use_gpu = false;
+        cparams.n_threads = 2;  // Limit threads on mobile
+        g_ctx = whisper_init_from_file_with_params(model_path, cparams);
         if (!g_ctx) {
-            return alloc_string("ERROR: Failed to load model");
+            LOGE("Failed to initialize context with model: %s", model_path);
+            return alloc_string("ERROR: Failed to load model from " + std::string(model_path));
         }
     }
 
     // Read WAV audio
     std::vector<float> pcmf32;
     if (!read_wav(audio_path, pcmf32)) {
+        LOGE("Failed to read audio file: %s", audio_path);
         return alloc_string("ERROR: Failed to read audio file");
     }
 
     if (pcmf32.empty()) {
+        LOGE("Audio file is empty: %s", audio_path);
         return alloc_string("ERROR: Audio file is empty");
     }
 
-    // Normalize audio if too quiet (mic input level issue on macOS)
+    LOGD("Audio loaded: %zu samples", pcmf32.size());
+
+    // Normalize audio if too quiet (mic input level issue on mobile)
     float max_amp = 0.0f;
     for (float s : pcmf32) { if (std::abs(s) > max_amp) max_amp = std::abs(s); }
+    LOGD("Audio amplitude: max=%f", max_amp);
     if (max_amp > 0.001f && max_amp < 0.3f) {
         float scale = 0.3f / max_amp;
         for (float& s : pcmf32) s *= scale;
+        LOGD("Audio normalized with scale: %f", scale);
     }
 
-    // Configure whisper parameters
+    // Configure whisper parameters (conservative for mobile)
     struct whisper_full_params params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
-    params.n_threads = 4;
+    params.n_threads = 2;  // Limit threads on mobile
     params.language = "en";
     params.translate = false;
     params.print_progress = false;
@@ -180,28 +211,38 @@ char* transcribe(const char* audio_path, const char* model_path) {
     params.print_timestamps = false;
     params.single_segment = false;
     params.no_speech_thold = 0.3f;  // lower threshold to detect quieter speech
-    params.logprob_thold   = -3.0f; // allow more uncertain decodings through
+    params.logprob_thold = -3.0f;   // allow more uncertain decodings
+    params.suppress_non_speech_tokens = true;  // Skip non-speech tokens on mobile
+
+    LOGD("Starting transcription with %d threads...", params.n_threads);
 
     // Run transcription
     int ret = whisper_full(g_ctx, params, pcmf32.data(), static_cast<int>(pcmf32.size()));
     if (ret != 0) {
-        return alloc_string("ERROR: Transcription failed");
+        LOGE("Transcription failed with code: %d", ret);
+        return alloc_string("ERROR: Transcription failed with code " + std::to_string(ret));
     }
+
+    LOGD("Transcription complete, collecting results...");
 
     // Collect results from all segments
     std::string text;
     int n_segments = whisper_full_n_segments(g_ctx);
+    LOGD("Number of segments: %d", n_segments);
     for (int i = 0; i < n_segments; i++) {
         const char* seg_text = whisper_full_get_segment_text(g_ctx, i);
         if (seg_text) {
             text += seg_text;
+            LOGD("Segment %d: %s", i, seg_text);
         }
     }
 
     if (text.empty()) {
+        LOGD("No speech detected");
         return alloc_string("(no speech detected)");
     }
 
+    LOGD("Transcription result: %s", text.c_str());
     return alloc_string(text);
 }
 
@@ -212,7 +253,9 @@ void free_string(char* ptr) {
 
 // Cleanup whisper context
 void cleanup_whisper() {
+    std::lock_guard<std::mutex> lock(g_ctx_mutex);
     if (g_ctx) {
+        LOGD("Cleaning up Whisper context");
         whisper_free(g_ctx);
         g_ctx = nullptr;
     }
