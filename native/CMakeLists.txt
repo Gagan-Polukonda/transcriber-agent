@@ -28,7 +28,11 @@ set(WHISPER_SOURCES whisper_bridge.cpp)
 add_library(whisper_bridge SHARED ${WHISPER_SOURCES})
 
 # Link whisper library from whisper.cpp build
-target_link_libraries(whisper_bridge PRIVATE Threads::Threads whisper)
+if(ANDROID)
+    target_link_libraries(whisper_bridge PRIVATE Threads::Threads whisper log)
+else()
+    target_link_libraries(whisper_bridge PRIVATE Threads::Threads whisper)
+endif()
 
 # Include whisper.cpp headers
 target_include_directories(whisper_bridge PUBLIC
